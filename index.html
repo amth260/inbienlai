@@ -1,0 +1,237 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xanh SM POS</title>
+    <!-- Đổi sang phiên bản thư viện 2.3.4 ổn định nhất chống lỗi trên Chrome -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.4/html5-qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Arial', sans-serif; background: #f4f4f9; margin: 0; padding: 10px; font-size: 11px; color: #000; }
+        .container { max-width: 320px; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; }
+        
+        .btn-wrapper { margin-bottom: 8px; width: 100%; }
+        .btn-upload { width: 100%; border: 2px dashed #008080; color: #008080; background: #fff; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; text-transform: uppercase; box-sizing: border-box; }
+        .file-input { display: none; }
+        
+        .toggle-btn { background: #6c757d; color: white; border: none; padding: 6px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-bottom: 8px; width: 100%; }
+        .manual-box { display: none; margin-bottom: 8px; }
+        textarea { width: 100%; height: 60px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; padding: 5px; font-size: 10px; }
+        
+        button.print-btn { width: 100%; background: #008080; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 11px; display: none; text-transform: uppercase; }
+        
+        /* KHU VỰC BIÊN LAI K57 COMPACT (195PX) */
+        .receipt { display: none; width: 195px; margin: 15px auto 0 auto; padding: 2px; background: #fff; line-height: 1.3; word-wrap: break-word; text-align: left; }
+        .header { text-align: center; margin-bottom: 8px; }
+        .logo { font-size: 14px; font-weight: bold; font-style: italic; color: #008080; text-align: center; line-height: 1.3; }
+        .company-name { font-weight: bold; font-size: 10px; margin-top: 1px; text-transform: uppercase; line-height: 1.5; }
+        .info-text { font-size: 10px; color: #333; margin-top: 2px; white-space: nowrap; }
+        
+        .dots-divider { border-bottom: 2px dotted #000; margin: 6px 0; width: 100%; }
+        .double-divider { border-bottom: 1px solid #000; margin: 6px 0; position: relative; }
+        .double-divider::after { content: ''; display: block; border-bottom: 1px solid #000; margin-top: 2px; }
+
+        .row { display: flex; justify-content: space-between; margin-bottom: 3px; align-items: flex-start; font-size: 10px; }
+        .label { padding-right: 3px; text-align: left; max-width: 60%; font-size: 10px; }
+        .value { text-align: right; white-space: nowrap; font-size: 10px; }
+        
+        .total-row { font-size: 12px; font-weight: bold; margin-top: 8px; line-height: 1.5;}
+        .total-value { font-size: 12px; border-bottom: 0px solid #000; padding-bottom: 1px; }
+        
+        .footer { text-align: center; font-size: 10px; line-height: 1.5; margin-top: 12px; padding: 0; color: #444; text-transform: uppercase; }
+
+        @media print { 
+            body * { visibility: hidden; } 
+            .receipt, .receipt * { visibility: visible; } 
+            .receipt { position: absolute; left: 0; top: 0; width: 57mm; border: none; padding: 0; margin: 0; } 
+            @page { size: 58mm auto; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h3 style="margin-top:0; color: #008080;">Xanh SM POS - Khổ K57</h3>
+    
+    <!-- Cách 1: Quét tự động bằng hình ảnh -->
+    <div class="btn-wrapper">
+        <button class="btn-upload" onclick="document.getElementById('qr-file').click()">📸 CHỌN ẢNH QR TỰ ĐỘNG</button>
+        <input type="file" id="qr-file" class="file-input" accept="image/*">
+    </div>
+    
+    <button class="toggle-btn" onclick="toggleManual()">Hoặc dán chữ (JSON) thủ công nếu ảnh mờ</button>
+    
+    <!-- Cách 2: Vùng nhập chữ dự phòng -->
+    <div id="manualBox" class="manual-box">
+        <textarea id="jsonTextInput" placeholder="Dán văn bản JSON vào đây nếu tính năng quét ảnh báo lỗi..."></textarea>
+        <button onclick="renderFromText()" style="width:100%; margin-top:5px; background:#6c757d; color:white; border:none; padding:6px; border-radius:4px; font-weight:bold;">TẠO BIÊN LAI TỪ CHỮ</button>
+    </div>
+    
+    <button class="print-btn" id="printBtn" onclick="window.print()">IN BIÊN LAI (RAWBT)</button>
+
+    <!-- KHU VỰC BIÊN LAI GIẢ LẬP ĐỂ IN -->
+    <div id="receipt" class="receipt">
+        <!-- Một div ẩn bắt buộc để thư viện khởi tạo cấu trúc ngầm -->
+        <div id="qr-hidden-scanner" style="display:none;"></div>
+        <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" id="logo-name_svg__Layer_1" width="110" height="32"><defs><style>.logo-name_svg__st0{fill:#2dccd3}.logo-name_svg__st1{fill:#ffca00}</style></defs><path d="M88.7 25.2c1.2.9 2.9 1.5 4.1 1.5s1-.3 1-.6c0-.4-.5-.5-1.5-.8-2.4-.6-4.5-1.5-4.5-3.8s1.6-3.5 4.5-3.5 3.2.4 4.8 1.5L95.5 22c-1.3-.8-2.2-1.1-3.3-1.1s-1 .2-1 .6.4.7 1.6.9c2.6.6 4.4 1.6 4.4 3.7s-1.4 3.5-4.4 3.5-4.1-.7-5.8-2l1.6-2.5ZM110 18.5v10.9h-3.3v-5.9l-2.4 3.8h-.2l-2.4-3.8v5.9h-3.4V18.5h3.4l2.5 3.9 2.5-3.9z" class="logo-name_svg__st1"></path><path d="M0 9.4v.1c1 .2 2.3.7 3.8 1.9 2.8 2.3 4.7 7.7 7 13.3h7.7s-3-7.2-4.1-9.7c-1.3-3.2-3.7-5.6-8.1-5.6z" class="logo-name_svg__st0"></path><path d="M15.5 29.3c4.8 0 7.4-4.7 12.3-12.4 2.4-3.8 4-6.5 5.6-8.5 1.9-2.5 5.1-4.7 9.9-6.1v-.1h-9.6c-4.1 0-8 2-10.1 5.3-3 4.7-4.2 6.6-6.6 10.3-1.5 2.3-3.5 3.8-6.5 3.8H5.1c3.7.8 4.8 7.6 10.4 7.6Z" class="logo-name_svg__st0"></path><path d="M25.5 7.8c-3.4 5.3-4.7 7.4-7.4 11.6-1.6 2.6-3.9 4.3-7.3 4.3H7.9c-.8-1-1.7-1.7-2.8-2h5.4c3 0 5-1.6 6.5-3.8 2.4-3.7 3.6-5.6 6.6-10.3 1.7-2.7 4.5-4.6 8-5.1 0 0-3.4 1.2-6.1 5.3" class="logo-name_svg__st1"></path><path d="M39.5 26.6c-.4.2-1 .4-1.8.4-1.3 0-3.1-.9-3.1-3s1-3.2 3-3.2 3 1.3 3 1.3l1.5-2.3c-.7-.6-2.5-1.7-4.6-1.7-3.8 0-6.2 2.9-6.2 5.8 0 4.2 3.4 5.8 6.2 5.8s4.2-1 4.6-1.5V24h-2.6zM77.1 18.5l3.7 5.8v-5.8h3.3v10.8h-3.3l-3.7-5.8v5.8h-3.3V18.5zM54.2 18.5h3.1v10.8h-3.1z" class="logo-name_svg__st0"></path><path d="M56.7 22.7h5V25h-5zM56.7 18.5h5.6V21h-5.6zM56.7 26.9h5.8v2.5h-5.8zM63.8 18.5h3.1v10.8h-3.1z" class="logo-name_svg__st0"></path><path d="M66.3 22.7h5V25h-5zM66.3 18.5h5.6V21h-5.6zM66.3 26.9h5.8v2.5h-5.8zM47.9 26.4h-1.7v2.9h-2.9V18.5h4.9c3.4 0 4.7 2.3 4.7 4.1s-1.1 2.8-2.1 3.4l2.1 3.3h-3.1zm0-5.6h-1.7v3.5H48c1.2 0 2-.7 2-1.7s-.8-1.7-2.1-1.7ZM37.9 23.5h4.2v2.1h-4.2z" class="logo-name_svg__st0"></path></svg></div>
+        <div class="header">        
+            <div class="company-name">CÔNG TY CỔ PHẦN DI CHUYỂN<br>XANH VÀ THÔNG MINH GSM</div>
+            <div class="info-text">Hotline: 1900 2088 | Email: cskh@xanhsm.com</div>
+        </div>
+        
+        <div class="dots-divider"></div>
+        
+        <div class="row">
+            <div class="label">Driver name/Tài xế</div>
+            <div class="value" id="r-driver" style="font-weight: normal;"></div>
+        </div>
+        <div class="row">
+            <div class="label">Plate number/Biển số xe</div>
+            <div class="value" id="r-plate" style="font-weight: normal;"></div>
+        </div>
+        
+        <div class="dots-divider"></div>
+        
+        <div class="row">
+            <div class="label">Date time/Ngày in</div>
+            <div class="value" id="r-datetime"></div>
+        </div>
+        <div style="text-align: left; margin-top: 2px; font-size: 10px;">Mã chuyến đi</div>
+        <div style="text-align: left; font-size: 10px; word-break: break-all; font-weight: normal; margin-top: 1px; line-height: 1.2;" id="r-order-id"></div>
+ 		
+		<div class="dots-divider"></div>
+        <div style="text-align: left; margin-top: 2px; font-size: 10px;">Pick Up/Điểm đón:</div>
+        <div style="text-align: left; font-size: 10px; word-break: break-all; font-weight: normal; margin-top: 1px; line-height: 1.2;" id="r-pickup"></div>
+        <div style="text-align: left; margin-top: 5px; font-size: 10px;">Drop Off/Điểm trả:</div>
+        <div style="text-align: left; font-size: 10px; word-break: break-all; font-weight: normal; margin-top: 1px; line-height: 1.2;" id="r-dropoff"></div>  
+		
+		<div class="dots-divider"></div>
+        
+        <div class="row">
+            <div class="label">Distance/Quãng đường</div>
+            <div class="value" id="r-distance"></div>
+        </div>
+        <div class="row">
+            <div class="label">Fee/Phí</div>
+            <div class="value" id="r-base"></div>
+        </div>
+        <div class="row">
+            <div class="label">Addon fee/Dịch vụ thêm</div>
+            <div class="value" id="r-addon"></div>
+        </div>
+        <div class="row">
+            <div class="label">Surcharge/Phụ phí</div>
+            <div class="value" id="r-surcharge"></div>
+        </div>
+        <div class="row">
+            <div class="label">Discount/Giảm giá</div>
+            <div class="value" id="r-discount"></div>
+        </div>      
+        
+        <div class="row total-row">
+            <div class="label" style="font-size: 12px;">Total/Tổng tiền</div>
+            <div class="value total-value" id="r-total"></div>
+        </div>
+        <div class="dots-divider"></div>
+        <div class="footer">
+            I AGREE TO PAY THE ABOVE TOTAL AMOUNT ACCORDING TO CARD ISSUER AGREEMENT / TÔI ĐỒNG Ý THANH TOÁN TỔNG SỐ TIỀN TRÊN HÓA ĐƠN<br>
+            NO REFUND/KHÔNG HOÀN TIỀN
+        </div>
+    </div>
+</div>
+
+<script>
+// Khởi tạo bộ quét ngầm để tránh xung đột giao diện trên Android
+const html5QrCode = new Html5Qrcode("qr-hidden-scanner");
+
+document.getElementById('qr-file').addEventListener('change', e => {
+    if (e.target.files.length == 0) return;
+    const imageFile = e.target.files[0];
+    
+    html5QrCode.scanFile(imageFile, true)
+    .then(qrCodeMessage => {
+        parseAndRender(qrCodeMessage);
+    })
+    .catch(err => {
+        alert("Không nhận diện được mã QR. Lý do có thể do ảnh bị mờ, lóa hoặc mất góc vuông. Bạn hãy thử dùng chức năng nhập chữ thủ công bên dưới nhé!");
+    });
+});
+
+function getAddresses(data) {
+    let pickupAddress = "---";
+    let dropoffAddress = "---";
+
+    const regexVN = /,\s*Việt\s*Nam\s*$/i;
+    
+    if (data.paths && Array.isArray(data.paths)) {
+        // Lấy địa chỉ đón và cắt bỏ chữ "Việt Nam"
+        const pickupObj = data.paths.find(p => p.type === 'PICK UP');
+        if (pickupObj && pickupObj.address) {
+            pickupAddress = pickupObj.address.replace(regexVN, '').trim();
+        }
+        
+        // Lấy địa chỉ trả và cắt bỏ chữ "Việt Nam"
+        const dropoffObj = data.paths.find(p => p.type === 'DROP OFF');
+        if (dropoffObj && dropoffObj.address) {
+            dropoffAddress = dropoffObj.address.replace(regexVN, '').trim();
+        }
+    }
+    
+    return {
+        pickup: pickupAddress,
+        dropoff: dropoffAddress
+    };
+}
+
+function parseAndRender(qrData) {
+    try {
+
+        const data = JSON.parse(qrData);
+        
+        document.getElementById('r-driver').innerText = data.driver_name || '---';
+
+        document.getElementById('r-plate').innerText = data.vehicle_license_plate || '---';
+        document.getElementById('r-distance').innerText = data.distance_display || '0km';
+        document.getElementById('r-base').innerText = data.base_fee_display || '0đ';
+        document.getElementById('r-addon').innerText = data.addons_fee_display || '0đ';
+        document.getElementById('r-surcharge').innerText = data.surcharge_fee_display || '0đ';
+        document.getElementById('r-discount').innerText = data.discount_display || '0đ';
+        document.getElementById('r-total').innerText = data.total_pay_display || '0đ';
+        document.getElementById('r-order-id').innerText = data.order_id || '---';
+		const route = getAddresses(data);
+		document.getElementById('r-pickup').innerText = route.pickup;
+        document.getElementById('r-dropoff').innerText = route.dropoff;
+		
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('r-datetime').innerText = `${day}/${month}/${year} ${hours}:${minutes}`;
+        
+        document.getElementById('receipt').style.display = 'block';
+        document.getElementById('printBtn').style.display = 'block';
+    } catch (e) {
+        alert('Lỗi: Nội dung mã hóa bên trong mã QR này không khớp với cấu trúc dữ liệu JSON cuốc xe của bạn!');
+    }
+}
+
+function toggleManual() {
+    const box = document.getElementById('manualBox');
+    box.style.display = box.style.display === 'block' ? 'none' : 'block';
+}
+
+function renderFromText() {
+    const textData = document.getElementById('jsonTextInput').value;
+    if(!textData.trim()) {
+        alert("Vui lòng điền nội dung chữ JSON vào ô!");
+        return;
+    }
+    parseAndRender(textData);
+}
+</script>
+</body>
+</html>
+
+
