@@ -189,7 +189,7 @@ function parseAndRender(qrData) {
         const data = JSON.parse(qrData);
         
         document.getElementById('r-driver').innerText = data.driver_name || '---';
-
+document.getElementById('r-driver').innerText = 'Nguyễn Văn A' || '---';
         document.getElementById('r-plate').innerText = data.vehicle_license_plate || '---';
         document.getElementById('r-distance').innerText = data.distance_display || '0km';
         document.getElementById('r-base').innerText = data.base_fee_display || '0đ';
