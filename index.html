@@ -46,22 +46,7 @@
             .receipt { position: absolute; left: 0; top: 0; width: 57mm; border: none; padding: 0; margin: 0; } 
             @page { size: 58mm auto; margin: 0; }
         }
-		.toggle-btn2 {
-  background-color: #FF0000; /* Màu đỏ thương hiệu YouTube */
-  color: #FFFFFF;            /* Chữ màu trắng */
-  border: none;              /* Xóa viền mặc định */
-  padding: 10px 16px;        /* Khoảng cách đệm bên trong nút */
-  font-size: 14px;           /* Kích thước chữ */
-  font-weight: bold;         /* Chữ đậm */
-  border-radius: 18px;       /* Bo tròn góc giống các nút hiện tại của YouTube */
-  cursor: pointer;           /* Đổi con trỏ chuột thành dạng bàn tay khi di chuyển vào */
-  transition: background-color 0.2s ease; /* Hiệu ứng mượt mà khi hover */
-}
 
-/* Hiệu ứng tối màu đi một chút khi người dùng rê chuột vào nút */
-.toggle-btn2:hover {
-  background-color: #CC0000; 
-			}
     </style>
 </head>
 <body>
@@ -77,8 +62,8 @@
     
     <button class="toggle-btn" onclick="toggleManual()">Hoặc dán chữ (JSON) thủ công nếu ảnh mờ</button>
     <!-- Nút bấm hiển thị trên trang web -->
-<button class="toggle-btn2" onclick="window.open('https://youtube.com/playlist?list=PLWzz9Nr_LfS--lUAwQLRBN-MCwOOhCS4b&si=Sn1llu1DLFy1XisM', '_blank')">
-  Video hướng dẫn
+<button class="toggle-btn" style="background-color: #FF0000;" onclick="window.open('https://youtube.com/playlist?list=PLWzz9Nr_LfS--lUAwQLRBN-MCwOOhCS4b&si=Sn1llu1DLFy1XisM', '_blank')">
+  Video hướng dẫn - youtube
 </button>
     <!-- Cách 2: Vùng nhập chữ dự phòng -->
     <div id="manualBox" class="manual-box">
